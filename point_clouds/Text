@@ -1,0 +1,46 @@
+import bpy
+import bmesh
+import mathutils
+
+# Clear existing mesh objects in the scene
+bpy.ops.object.select_all(action='DESELECT')
+bpy.ops.object.select_by_type(type='MESH')
+bpy.ops.object.delete()
+
+# Points and corresponding colors
+points = [(1, 2, 3), (4, 5, 6)] # add more points
+colors = [(1, 0, 0, 1), (1, 0, 0, 1)] # add more colors, corresponding to the points
+
+# Create mesh and object
+mesh = bpy.data.meshes.new(name="PointCloud")
+obj = bpy.data.objects.new("PointCloud", mesh)
+
+# Link to scene
+scene = bpy.context.scene.collection
+scene.objects.link(obj)
+
+# Create bmesh
+bm = bmesh.new()
+
+# Add vertices and create spheres
+for point in points:
+    mat = mathutils.Matrix.Translation(point)
+    bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=8, radius=1, matrix=mat)
+
+# Update mesh from bmesh
+bm.to_mesh(mesh)
+
+# Set active object
+bpy.context.view_layer.objects.active = obj
+obj.select_set(True)
+
+# Create materials and assign to vertices
+for i, color in enumerate(colors):
+    mat = bpy.data.materials.new(name=f"Color_{i}")
+    mat.diffuse_color = color
+    obj.data.materials.append(mat)
+    for polygon in obj.data.polygons[i*32:(i+1)*32]: # assuming 8 segments * 8 segments = 32 polygons per sphere
+        polygon.material_index = i
+
+# Update scene
+bpy.context.view_layer.update()
