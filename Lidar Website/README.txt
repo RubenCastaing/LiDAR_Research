@@ -1,3 +1,1 @@
-First upload of a website. Many improvements are coming.
-
-The Template is Story by HTML5 UP html5up.net 
+Analytics website to interpret LiDAR data. The dash app is currently needed to be run locally to be seen. 
