@@ -1,15 +1,19 @@
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State
 import numpy as np
 from datetime import timedelta
 import xarray as xr
 
+pio.templates.default = 'plotly_white'
+
 # Load the data and create the first 3D scatter plot
 combined_df = pd.read_csv('Semester_2_2023/Lidar Website/combined_df.csv')
 smaller_by_100_df = pd.read_csv('Semester_2_2023/Lidar Website/smaller_by_100_df.csv')
-df = smaller_by_100_df
+big_df = pd.read_csv('Semester_2_2023/Lidar Website/big_df.csv')
+df = combined_df
 
 df['time'] = pd.to_datetime(df['time'])
 df['date'] = df['time'].dt.date
@@ -42,7 +46,7 @@ def create_scatter3d_animated_fig(color_scheme='Plasma', OBS_range=(0.019, 2), c
     return fig3d_animated
 
 def aggregate_max_velocity(dataframe, OBS_range):
-    #This is a function that aggregates the maximum radial velocity for each time step for a time series
+    #This is a function that aggregates the maximum absoltute radial velocity for each time step for a time series
     # Filter the dataframe based on OBS range
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
 
@@ -51,24 +55,21 @@ def aggregate_max_velocity(dataframe, OBS_range):
 
     return aggregated_df
 
-def create_time_series_fig(OBS_range, dataframe=smaller_by_100_df):
+def create_time_series_fig(OBS_range, dataframe=big_df):
     aggregated_df = aggregate_max_velocity(dataframe, OBS_range)
-    fig = px.line(aggregated_df, x='time_step', y='radial_velocity', title='Max Absolute Radial Velocity Over Time')
+    fig = px.line(aggregated_df, x='time_step', y='radial_velocity', title='Wind Velocity Over Time')
+    fig.update_layout(xaxis_title='Time step', yaxis_title='Max Absolute Radial Velocity')
     return fig
 
 # Create the heatmap figure
-def create_heat_map(color_scheme='Plasma', dataframe=combined_df, OBS_range=(0.019, 2)):
+def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), dataframe=big_df):
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
-    heatmap_df = filtered_df.pivot(index="distance", columns="time", values="radial_velocity")
+    aggregated_df = filtered_df.groupby(['distance', 'time'])['radial_velocity'].mean().reset_index()    # Aggregate the data
+    heatmap_df = aggregated_df.pivot(index="distance", columns="time", values="radial_velocity")
     fig = px.imshow(heatmap_df, 
                     labels=dict(x="time", y="distance", color="radial_velocity"), 
                     origin='lower', title='Daily Vertical Stare',
                     color_continuous_scale = color_scheme)
-    return fig
-
-def create_heat_map_fake_data(color_scheme='Plasma'): #Fix the colors!
-    airtemps = xr.tutorial.open_dataset('air_temperature').air.sel(lon=250.0)
-    fig = px.imshow(airtemps.T, color_continuous_scale=color_scheme, origin='lower', title='Daily Vertical Stare')
     return fig
 
 # Initialize the Dash app
@@ -152,11 +153,8 @@ def update_plots(color_scheme, OBS_range, color_range):
     scatter3d_fig = create_scatter3d_fig(color_scheme, OBS_range, color_range=color_range)
     scatter3d_animated_fig = create_scatter3d_animated_fig(color_scheme, OBS_range, color_range=color_range)
     time_series_fig = create_time_series_fig(OBS_range)
-    heatmap_fig = create_heat_map(color_scheme)
+    heatmap_fig = create_heat_map(color_scheme, OBS_range)
     return scatter3d_fig, scatter3d_animated_fig, time_series_fig, heatmap_fig
-
-
-
 
 
 # Run the app
