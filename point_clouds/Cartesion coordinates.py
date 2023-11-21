@@ -31,17 +31,17 @@ roll = df['roll']
 
 # Convert azimuth and elevation from degrees to radians
 azimuth_rad = np.deg2rad(azimuth)
-elevation_pitch_rad = np.deg2rad(elevation-pitch)
-elevation_pitch_deg = elevation-pitch
+elevation_rad = np.deg2rad(elevation)
+elevation_deg = elevation
 
 print(df)
 
 # Spherical to Cartesian conversion
 # I think this may be wrong is pitch is not used to calculate y.
 # Make sure to correct this.
-df['x'] = distance * np.cos(elevation_pitch_deg) * np.sin(azimuth_rad) 
-df['y'] = distance * np.cos(elevation_pitch_deg) * np.cos(azimuth_rad)
-df['z'] = distance * np.sin(elevation_pitch_deg) #I don't think z should be effected by the azimuth. #I think I need to use sin.
+df['x'] = distance * np.cos(elevation_rad) * np.sin(azimuth_rad) 
+df['y'] = distance * np.cos(elevation_rad) * np.cos(azimuth_rad)
+df['z'] = distance * np.sin(elevation_rad) 
 
 #Old version
 #df['x'] = distance * np.sin(elevation_pitch_deg) * np.cos(azimuth_rad) 
@@ -85,52 +85,6 @@ ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
 
-#plt.show()
-
-
-
-# Assume that 'df' is your DataFrame and it has columns 'x', 'y', 'z', 'radial_velocity' and 'time'
-
-# Reset 'time' index level to a column
-df = df.reset_index(level='time')
-
-# Normalize radial_velocity for color mapping
-df['color'] = (df['radial_velocity'] - df['radial_velocity'].min()) / (df['radial_velocity'].max() - df['radial_velocity'].min())
-
-# Convert the 'time' column into the number of seconds since the first timestamp in the data
-df['time'] = (df['time'] - df['time'].min()).dt.total_seconds()
-
-fig = plt.figure(figsize=(8, 6))
-ax = fig.add_subplot(111, projection='3d')
-
-# Get unique time values
-times = df['time'].unique()
-
-# Initialization function for the scatter plot
-def init():
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    return fig,
-
-# Update function for each frame of the animation
-# Update function for each frame of the animation
-def update(i):
-    ax.cla()
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_xlim([df['x'].min(), df['x'].max()])  # Set limits for X axis
-    ax.set_ylim([df['y'].min(), df['y'].max()])  # Set limits for Y axis
-    ax.set_zlim([df['z'].min(), df['z'].max()])  # Set limits for Z axis
-    current_time = times[i]
-    data = df[df['time'] == current_time]
-    scatter = ax.scatter(data['x'], data['y'], data['z'], c=data['color'], cmap='viridis')
-    ax.set_title('Time: ' + str(current_time))
-    return fig,
-
-
-# Create the animation
-ani = animation.FuncAnimation(fig, update, frames=len(times), init_func=init, blit=False)
+plt.axis('equal')
 
 plt.show()

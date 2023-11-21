@@ -26,9 +26,9 @@ elevation_pitch_rad = np.deg2rad(elevation-pitch)
 elevation_pitch_deg = elevation-pitch
 
 # Spherical to Cartesian conversion
-df['x'] = distance * np.cos(elevation_pitch_deg) * np.sin(azimuth_rad) 
-df['y'] = distance * np.cos(elevation_pitch_deg) * np.cos(azimuth_rad)
-df['z'] = distance * np.sin(elevation_pitch_deg)
+df['x'] = distance * np.cos(elevation_pitch_deg) * np.sin(azimuth) 
+df['y'] = distance * np.cos(elevation_pitch_deg) * np.cos(azimuth)
+df['z'] = distance * (1 - np.sin(elevation_deg)) 
 
 # Assume that 'df' is your DataFrame and it has columns 'x', 'y', 'z', and 'radial_velocity'
 df['color'] = df['radial_velocity']
