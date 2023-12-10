@@ -10,9 +10,9 @@ import xarray as xr
 pio.templates.default = 'plotly_white'
 
 # Load the data and create the first 3D scatter plot
-combined_df = pd.read_csv('LiDAR_Research/Lidar Website/combined_df.csv')
-smaller_by_100_df = pd.read_csv('LiDAR_Research/Lidar Website/smaller_by_100_df.csv')
-big_df = pd.read_csv('LiDAR_Research/Lidar Website/big_df.csv')
+combined_df = pd.read_csv('combined_df.csv')
+smaller_by_100_df = pd.read_csv('smaller_by_100_df.csv')
+big_df = pd.read_csv('big_df.csv')
 df = combined_df
 
 df['time'] = pd.to_datetime(df['time'])
