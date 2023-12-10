@@ -12,7 +12,7 @@ pio.templates.default = 'plotly_white'
 # Load the data and create the first 3D scatter plot
 combined_df = pd.read_csv('combined_df.csv')
 smaller_by_100_df = pd.read_csv('smaller_by_100_df.csv')
-big_df = pd.read_csv('big_df.csv')
+#big_df = pd.read_csv('big_df.csv')
 df = combined_df
 
 df['time'] = pd.to_datetime(df['time'])
@@ -29,7 +29,7 @@ def create_scatter3d_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_rang
     fig3d.update_traces(marker={'size': 2})#, hoverinfo='text', hovertext=[...]) #Adding hovertext unsure if the last part is desirable
     return fig3d
 
-def create_scatter3d_animated_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=big_df):
+def create_scatter3d_animated_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df):
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
     fig3d_animated = px.scatter_3d(filtered_df, x='x', y='y', z='z', color='radial_velocity',
                                    color_continuous_scale=color_scheme, range_color=color_range, title='Wind Lidar Scan Animated',
@@ -52,7 +52,7 @@ def aggregate_max_velocity(dataframe, OBS_range):
 
     return aggregated_df
 
-def create_time_series_fig(OBS_range, dataframe=big_df):
+def create_time_series_fig(OBS_range, dataframe=df):
     aggregated_df = aggregate_max_velocity(dataframe, OBS_range)
     fig = px.line(aggregated_df, x='time_step', y='radial_velocity', title='Wind Velocity Over Time')
     fig.update_layout(xaxis_title='Time step', yaxis_title='Max Absolute Radial Velocity')
@@ -60,7 +60,7 @@ def create_time_series_fig(OBS_range, dataframe=big_df):
 
 # Create the heatmap figure
 #This creates the varience in funtion which will be extra slow
-def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=big_df, attribute='radial_velocity'):
+def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df, attribute='radial_velocity'):
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
 
     if attribute == 'variance':
