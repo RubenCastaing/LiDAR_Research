@@ -83,10 +83,8 @@ google-pasta==0.2.0
 googleapis-common-protos==1.59.0
 gpgrecord==0.0.5
 greenlet==2.0.1
-grpcio==1.48.1
 gTTS==2.3.1
 h11==0.14.0
-h5py==3.7.0
 hanziconv==0.3.2
 httpcore==0.16.3
 httplib2==0.22.0
