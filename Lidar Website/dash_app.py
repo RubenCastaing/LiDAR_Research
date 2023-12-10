@@ -194,10 +194,10 @@ def update_plots(color_scheme, OBS_range, color_range, Time_measurement):
 # Run the app
 
 #Use this if hosting online
-#if __name__ == '__main__':
-#    port = int(os.environ.get("PORT", 80))
-#    app.run_server(debug=True, host='0.0.0.0', port=port)
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 80))
+    app.run_server(debug=True, host='0.0.0.0', port=port)
 
 #Use this for local hosting
-if __name__ == '__main__':
-    app.run_server(debug=True)
+#if __name__ == '__main__':
+#    app.run_server(debug=True)
