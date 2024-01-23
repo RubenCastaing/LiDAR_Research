@@ -122,39 +122,3 @@ def wrangle_folder(folder_path):
         time_step += 1
     
     return combined_df
-
-
-#Having this will break webhosting as the folder path is not uploaded due to file size
-'''
-if __name__ == '__main__':
-    #folder_path = 'Donqgis_data/netcdf/20230428/Stare_252_20230428_00'
-    
-    #Load each file path in the fodler into a list
-    file_names = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
-    file_names = sorted(file_names)[:10000]  # Limiting to first 10000 files, adjust as needed
-    files_to_visualize = [os.path.join(folder_path, filename) for filename in file_names]
-
-    #Process each file in parallel
-    results = parallel_visualization(files_to_visualize)
-
-    print(results)
-
-    # Initialize an empty DataFrame to store combined data
-    combined_df = pd.DataFrame()
-
-    # Combine results into a single DataFrame
-    time_step = 0
-    for df in results:
-        df['time_step'] = time_step
-        combined_df = pd.concat([combined_df, df])
-        time_step += 1
-
-
-    print(combined_df)
-    print(len(combined_df))
-
-    #only get the first 500000 rows of combined_df
-    combined_df = combined_df.iloc[:1]
-
-    #combined_df.to_csv('empty_df.csv')
-'''
