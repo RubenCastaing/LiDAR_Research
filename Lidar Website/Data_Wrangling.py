@@ -123,6 +123,9 @@ def wrangle_folder(folder_path):
     
     return combined_df
 
+
+#Having this will break webhosting as the folder path is not uploaded due to file size
+'''
 if __name__ == '__main__':
     folder_path = 'Donqgis_data/netcdf/20230428/Stare_252_20230428_00'
     
@@ -154,3 +157,4 @@ if __name__ == '__main__':
     combined_df = combined_df.iloc[:1]
 
     #combined_df.to_csv('empty_df.csv')
+'''
