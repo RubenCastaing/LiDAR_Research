@@ -127,7 +127,7 @@ def wrangle_folder(folder_path):
 #Having this will break webhosting as the folder path is not uploaded due to file size
 '''
 if __name__ == '__main__':
-    folder_path = 'Donqgis_data/netcdf/20230428/Stare_252_20230428_00'
+    #folder_path = 'Donqgis_data/netcdf/20230428/Stare_252_20230428_00'
     
     #Load each file path in the fodler into a list
     file_names = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
