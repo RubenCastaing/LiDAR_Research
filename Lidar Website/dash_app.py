@@ -7,20 +7,24 @@ import plotly.express as px
 import plotly.io as pio
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output, State
-import os
+import os #Is needed for hosting online.
+from Data_Wrangling import wrangle_folder
+import base64
+import io
+from file_upload import parse_contents
+import json
 
 #Getting a basic templete.
 pio.templates.default = 'plotly_white'
+empty_df = pd.read_csv('empty_df.csv')
+df = empty_df
 
-# Loading the data
-#Combined_df has about 6 hours of data. 
-combined_df = pd.read_csv('combined_df.csv')
-#small_by_100_df is every 100 point. This makes it fast.
-smaller_by_100_df = pd.read_csv('smaller_by_100_df.csv')
-#big_df = pd.read_csv('Semester_2_2023/Lidar Website/big_df.csv')
-big_df = combined_df #Get rid of this workaround
-
-df = smaller_by_100_df
+#Loading directly from the netcdf files.
+folder_path = 'Donqgis_data/netcdf/20230428/User2_252_20230428_124459'
+#df = wrangle_folder(folder_path) #This breaks with parellel processing. Run it in __main__.
+#I'm using a global varble to ensure I don't get parellel processing issues in windows.
+#This will get updated as the plots update.
+main_df = None
 
 #Calculating time values for the time series.
 df['time'] = pd.to_datetime(df['time'])
@@ -29,12 +33,13 @@ min_date = df['date'].min()
 max_date = df['date'].max()
 
 #This part of the code creates the different plots in plotly.
-#Note each function calculates obs_singnal. This is extra slow.
+#Note each function calculates obs_signal. This is extra slow.
 #Scatter3d is a less useful plot as lacks animation.
 def create_scatter3d_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df, number_of_rows = 10000):
+    #work out how to add the line below without the code
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])] #This line of code repeats itself in most functions.
     fig3d = px.scatter_3d(filtered_df.iloc[:number_of_rows], x='x', y='y', z='z', color='radial_velocity',
-                          color_continuous_scale=color_scheme, range_color=color_range, title='Wind Lidar Scan')
+                          color_continuous_scale=color_scheme, range_color=color_range, title='Wind Lidar Scan All Data <br><sup>Wind goes from negitive to positive</sup>')
     fig3d.update_layout(autosize=True, scene=dict(aspectmode='data', xaxis_title="East", yaxis_title="North", zaxis_title="Altitude")) #Autosizing the plot and naming the axis
     fig3d.update_traces(marker={'size': 2})#, hoverinfo='text', hovertext=[...]) #Adding hovertext unsure if the last part is desirable
     return fig3d
@@ -68,16 +73,17 @@ def aggregate_max_velocity(dataframe, OBS_range, Time_type):
     return aggregated_df
 
 #The time series can take time or time_step in Time_type.
-def create_time_series_fig(OBS_range, Time_type = 'time', dataframe=smaller_by_100_df):  #Note this loads a different dataframe.
+def create_time_series_fig(OBS_range, Time_type = 'time_step', dataframe=df):  #Note this loads a different dataframe.
     #Calculating max velocity.
     aggregated_df = aggregate_max_velocity(dataframe, OBS_range, Time_type)
     #Plotting the line
-    fig = px.line(aggregated_df, x= Time_type, y='radial_velocity', title='Wind Velocity Over Time')
+    fig = px.line(aggregated_df, x= Time_type, y='radial_velocity', title='Wind Velocity Over Time <br><sup>The max velocity for each scan</sup>')
     fig.update_layout(xaxis_title='Time step', yaxis_title='Max Absolute Radial Velocity')
     return fig
 
 # Create the heatmap figure
-def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), dataframe=big_df):
+#I need to apply the color range to the range color part of px
+def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), color_range = [-20,20], dataframe=df):
     #Removing noise
     filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
     #Getting the mean radial velocity for any distance and time.
@@ -86,9 +92,9 @@ def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), dataframe=big_d
     #Plotting the heatmap
     heatmap_df = aggregated_df.pivot(index="distance", columns="time", values="radial_velocity")
     fig = px.imshow(heatmap_df, 
-                    labels=dict(x="time", y="distance", color="radial_velocity"), 
-                    origin='lower', title='Daily Vertical Stare',
-                    color_continuous_scale = color_scheme)
+                    labels=dict(x="Time", y="Distance", color="Radial Velocity"), 
+                    origin='lower', title='Vertical Stare',
+                    color_continuous_scale = color_scheme, range_color= color_range)
     return fig
 
 #Create the wind direction graph.
@@ -109,6 +115,9 @@ app.layout = html.Div([
             dcc.Graph(id='time-series-plot') 
         ], style={'flex': 1}),
 
+        # An empty div for storing data from callbacks
+        html.Div(id='uploaded-data', style={'display': 'none'}),
+        
         # Sidebar for the dropdown
         html.Div([
             html.H3("Controls"),
@@ -132,7 +141,8 @@ app.layout = html.Div([
                 ],
                 value='Inferno'  # Default value
             ),
-            html.H5("OBS signal Range"),
+            html.H3(''), #Space in the panel
+            html.H5("OBS signal Cutoff"),
                 dcc.RangeSlider(
                     id='OBS-range-slider',
                     min=0,
@@ -141,35 +151,55 @@ app.layout = html.Div([
                     value=[0.1, 1],  # Default range
                     marks = {i: '{:.1f}'.format(i) for i in [x * 0.2 for x in range(6)]},
             ),
-            html.H5("Color Range"),
+            html.H3(''), #Adding a gap. This is not likely to work well for mobile.
+            html.H5("Wind range"),
                 dcc.RangeSlider(
                     id='color-range-slider',
-                    min=-30,
-                    max=30,
-                    step=1,
-                    value=[-5, 5],  # Default color range
-                    marks={i: str(i) for i in range(-30, 31, 10)},
+                    min=-50,
+                    max=50,
+                    step=0.5,
+                    value=[-10, 10],  # Default color range
+                    marks={i: str(i) for i in range(-50, 51, 10)},
             ),
-            html.H5("Date Range"),
-                dcc.DatePickerRange(
-                    id='date-picker-range',
-                    min_date_allowed=min_date,
-                    max_date_allowed=max_date,
-                    start_date=min_date,
-                    end_date=max_date,
+
+            html.H3(''),
+            html.H5('Upload Data (Not yet working)'),
+            
+            dcc.Upload(
+                id='upload-data',
+                children=html.Div([
+                    'Drag and Drop or ',
+                    html.A('Select Files')
+                ]),
+                style={
+                    'width': '100%',
+                    'height': '60px',
+                    'lineHeight': '60px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'dashed',
+                    'borderRadius': '5px',
+                    'textAlign': 'center',
+                    'margin': '10px'
+                },
+                # Allow multiple files to be uploaded
+                multiple=True
             ),
             
-            html.H5("Time series measurement"),
-                dcc.Dropdown(
-                    id='Time-measurement-dropdown',
-                options=[
-                    {'label': 'Time Step', 'value': 'time_step'},
-                    {'label': 'Time', 'value': 'time'},
-                ],
-                value='time_step', #Default value
-            ),
         ], style={'width': '20%', 'padding': '20px', 'backgroundColor': '#f2f2f2'})
     ], style={'display': 'flex'})	
+
+@app.callback(
+    Output('uploaded-data', 'children'),
+    [Input('upload-data', 'contents')],
+    [State('upload-data', 'filename')]
+)
+def update_output(contents, filename):
+    if contents is not None:
+        content = contents[0]
+        name = filename[0] if isinstance(filename, list) else filename
+        df = parse_contents(content, name)
+        return df
+    return None
 
 # Callback for updating the plots based on selected color scheme, OBS range, and color range
 @app.callback(
@@ -180,24 +210,36 @@ app.layout = html.Div([
     [Input('color-scheme-dropdown', 'value'),
      Input('OBS-range-slider', 'value'),
      Input('color-range-slider', 'value'),
-     Input('Time-measurement-dropdown', 'value'),
-     ]
+     Input('uploaded-data', 'children')]
 )
-def update_plots(color_scheme, OBS_range, color_range, Time_measurement):
-    scatter3d_fig = create_scatter3d_fig(color_scheme, OBS_range, color_range=color_range)
-    scatter3d_animated_fig = create_scatter3d_animated_fig(color_scheme, OBS_range, color_range=color_range)
-    time_series_fig = create_time_series_fig(OBS_range, Time_measurement)
-    heatmap_fig = create_heat_map(color_scheme, OBS_range)
-    return scatter3d_fig, scatter3d_animated_fig, time_series_fig, heatmap_fig
 
+#This here is the current bug. The user data is loaded as a dictionary instead of a CSV so cannot upload.
+#I need to google how to convert the dict to a csv OR
+#I need to work with the filepath and send it to the wrangling function.
+def update_plots(color_scheme, OBS_range, color_range, uploaded_data):
+    
+    if uploaded_data is not None:
+        uploaded_dataframe = pd.DataFrame(uploaded_data)
+        main_df = uploaded_dataframe
+        print('This is the uploaded dataframe:')
+        print(uploaded_dataframe)
+        
+    else:
+        main_df = wrangle_folder(folder_path)
+
+    scatter3d_fig = create_scatter3d_fig(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
+    scatter3d_animated_fig = create_scatter3d_animated_fig(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
+    time_series_fig = create_time_series_fig(OBS_range, dataframe=main_df)
+    heatmap_fig = create_heat_map(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
+    return scatter3d_fig, scatter3d_animated_fig, time_series_fig, heatmap_fig
 
 # Run the app
 
 #Use this if hosting online
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 80))
-    app.run_server(debug=True, host='0.0.0.0', port=port)
+#if __name__ == '__main__':
+#    port = int(os.environ.get("PORT", 80))
+#    app.run_server(debug=True, host='0.0.0.0', port=port)
 
 #Use this for local hosting
-#if __name__ == '__main__':
-#    app.run_server(debug=True)
+if __name__ == '__main__':
+    app.run_server(debug=True)
