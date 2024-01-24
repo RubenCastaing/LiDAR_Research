@@ -17,10 +17,9 @@ import json
 #Getting a basic templete.
 pio.templates.default = 'plotly_white'
 empty_df = pd.read_csv('empty_df.csv')
+combined_df = pd.read_csv('combined_df.csv')
 df = empty_df
 
-#Loading directly from the netcdf files.
-folder_path = 'Donqgis_data/netcdf/20230428/User2_252_20230428_124459'
 #df = wrangle_folder(folder_path) #This breaks with parellel processing. Run it in __main__.
 #I'm using a global varble to ensure I don't get parellel processing issues in windows.
 #This will get updated as the plots update.
@@ -35,10 +34,8 @@ max_date = df['date'].max()
 #This part of the code creates the different plots in plotly.
 #Note each function calculates obs_signal. This is extra slow.
 #Scatter3d is a less useful plot as lacks animation.
-def create_scatter3d_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df, number_of_rows = 10000):
-    #work out how to add the line below without the code
-    filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])] #This line of code repeats itself in most functions.
-    fig3d = px.scatter_3d(filtered_df.iloc[:number_of_rows], x='x', y='y', z='z', color='radial_velocity',
+def create_scatter3d_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df, number_of_rows = 10000): 
+    fig3d = px.scatter_3d(dataframe.iloc[:number_of_rows], x='x', y='y', z='z', color='radial_velocity',
                           color_continuous_scale=color_scheme, range_color=color_range, title='Wind Lidar Scan All Data <br><sup>Wind goes from negitive to positive</sup>')
     fig3d.update_layout(autosize=True, scene=dict(aspectmode='data', xaxis_title="East", yaxis_title="North", zaxis_title="Altitude")) #Autosizing the plot and naming the axis
     fig3d.update_traces(marker={'size': 2})#, hoverinfo='text', hovertext=[...]) #Adding hovertext unsure if the last part is desirable
@@ -46,10 +43,8 @@ def create_scatter3d_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_rang
 
 #This plot animated Cartesion LiDAR data across time.
 def create_scatter3d_animated_fig(color_scheme='Plasma', OBS_range=(0.019, 2), color_range=[-20, 20], dataframe=df):
-    #Removing noise
-    filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
     #Creating the plot
-    fig3d_animated = px.scatter_3d(filtered_df, x='x', y='y', z='z', color='radial_velocity',
+    fig3d_animated = px.scatter_3d(dataframe, x='x', y='y', z='z', color='radial_velocity',
                                    color_continuous_scale=color_scheme, range_color=color_range, title='Wind Lidar Scan Animated',
                                    animation_frame='time_step')
     #Changing the plot size and labels.
@@ -64,11 +59,9 @@ def create_scatter3d_animated_fig(color_scheme='Plasma', OBS_range=(0.019, 2), c
 
 def aggregate_max_velocity(dataframe, OBS_range, Time_type):
     #Aggregating maximum absoltute radial velocity for each time step for the time series
-    # Filter the dataframe based on OBS range
-    filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
-
+    
     # Group by time and calculate the max radial velocity
-    aggregated_df = filtered_df.groupby(Time_type)['radial_velocity'].max().abs().reset_index() #Instead of the max, I want the average of the top 50
+    aggregated_df = dataframe.groupby(Time_type)['radial_velocity'].max().abs().reset_index() #Instead of the max, I want the average of the top 50
 
     return aggregated_df
 
@@ -84,11 +77,9 @@ def create_time_series_fig(OBS_range, Time_type = 'time_step', dataframe=df):  #
 # Create the heatmap figure
 #I need to apply the color range to the range color part of px
 def create_heat_map(color_scheme='Plasma', OBS_range=(0.019, 2), color_range = [-20,20], dataframe=df):
-    #Removing noise
-    filtered_df = dataframe[(dataframe['obs_signal'] >= OBS_range[0]) & (dataframe['obs_signal'] <= OBS_range[1])]
     #Getting the mean radial velocity for any distance and time.
     #This prevents the code breaking with duplicate values.
-    aggregated_df = filtered_df.groupby(['distance', 'time'])['radial_velocity'].mean().reset_index()    # Aggregate the data
+    aggregated_df = dataframe.groupby(['distance', 'time'])['radial_velocity'].mean().reset_index()    # Aggregate the data
     #Plotting the heatmap
     heatmap_df = aggregated_df.pivot(index="distance", columns="time", values="radial_velocity")
     fig = px.imshow(heatmap_df, 
@@ -163,7 +154,7 @@ app.layout = html.Div([
             ),
 
             html.H3(''),
-            html.H5('Upload Data (Not yet working)'),
+            html.H5('Upload Data (Only working for CSVs)'),
             
             dcc.Upload(
                 id='upload-data',
@@ -219,18 +210,28 @@ def update_output(contents, filename):
 def update_plots(color_scheme, OBS_range, color_range, uploaded_data):
     
     if uploaded_data is not None:
-        uploaded_dataframe = pd.DataFrame(uploaded_data)
+        actual_data = uploaded_data['props']['children'][1]['props']['data']
+        uploaded_dataframe = pd.DataFrame(actual_data)
         main_df = uploaded_dataframe
         print('This is the uploaded dataframe:')
         print(uploaded_dataframe)
         
     else:
-        main_df = wrangle_folder(folder_path)
+        #If there is no uploaded data, use the combined dataframe.
+        main_df = combined_df
+        
+        #This is for loading the data from a folder.
+        #folder_path = 'Donqgis_data/netcdf/20230428/User2_252_20230428_124459'
+        #main_df = wrangle_folder(folder_path)
 
-    scatter3d_fig = create_scatter3d_fig(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
-    scatter3d_animated_fig = create_scatter3d_animated_fig(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
-    time_series_fig = create_time_series_fig(OBS_range, dataframe=main_df)
-    heatmap_fig = create_heat_map(color_scheme, OBS_range, color_range=color_range, dataframe=main_df)
+    #Removing noise
+    #If this breaks, it is because the data is not in a data frame so cannot find obs singnal 
+    filtered_df = main_df[(main_df['obs_signal'] >= OBS_range[0]) & (main_df['obs_signal'] <= OBS_range[1])]
+    
+    scatter3d_fig = create_scatter3d_fig(color_scheme, OBS_range, color_range=color_range, dataframe=filtered_df)
+    scatter3d_animated_fig = create_scatter3d_animated_fig(color_scheme, OBS_range, color_range=color_range, dataframe=filtered_df)
+    time_series_fig = create_time_series_fig(OBS_range, dataframe=filtered_df)
+    heatmap_fig = create_heat_map(color_scheme, OBS_range, color_range=color_range, dataframe=filtered_df)
     return scatter3d_fig, scatter3d_animated_fig, time_series_fig, heatmap_fig
 
 # Run the app
