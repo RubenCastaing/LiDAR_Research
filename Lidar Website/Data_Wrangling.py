@@ -64,7 +64,7 @@ def visualize_single_file(filename):
 
         # Check if more than 70% of values are removed for this distance
         if removed_count / original_count > 0.3:
-            first_to_remove = 2500 #This distance needs to found automatically.
+            first_to_remove = 5000 #This distance needs to found automatically.
             break  # Stop when we find the first such distance
 
     # If we found such a distance, remove it and all distances that come after it
@@ -94,12 +94,11 @@ def visualize_single_file(filename):
     df = df.reset_index(level='time')
     df = df.reset_index(level='distance')
 
-    df = df.drop(columns=['beta', 'intensity', 'azimuth', 'elevation', 'pitch', 'roll'])
+    df = df.drop(columns=['beta', 'intensity', 'pitch', 'roll'])
 
     #round x, y, z and obs_signal to 4 decimal places
     df = df.round({'x': 4, 'y': 4, 'z': 4, 'obs_signal': 4})
-
-    print (df)
+    df['time_step'] = 0
     return df
 
 def wrangle_folder(folder_path):
@@ -122,3 +121,32 @@ def wrangle_folder(folder_path):
         time_step += 1
     
     return combined_df
+
+#this breaks web hosting
+
+if __name__ == '__main__':
+    folder_path = 'Donqgis_data/nc_files_bottlelake_not_stares'
+    
+    #Load each file path in the fodler into a list
+    file_names = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+    file_names = sorted(file_names)[:10000]  # Limiting to first 10000 files, adjust as needed
+    files_to_visualize = [os.path.join(folder_path, filename) for filename in file_names]
+
+    #Process each file in parallel
+    results = parallel_visualization(files_to_visualize)
+
+    # Initialize an empty DataFrame to store combined data
+    combined_df = pd.DataFrame()
+
+    # Combine results into a single DataFrame
+    time_step = 0
+    for df in results:
+        df['time_step'] = time_step
+        combined_df = pd.concat([combined_df, df])
+        time_step += 1
+
+    #only get the first 500000 rows of combined_df
+    polar_df = combined_df.iloc[:1000000]
+    print(polar_df)
+
+    polar_df.to_csv('polar2_df.csv')
