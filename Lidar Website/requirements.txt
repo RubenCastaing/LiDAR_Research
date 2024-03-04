@@ -259,7 +259,7 @@ pytz-deprecation-shim==0.1.0.post0
 pyvista==0.41.1
 pyviz_comms==3.0.1
 PyYAML==6.0
-pyzmq==25.1.2
+pyzmq
 readability-lxml==0.8.1
 redis==4.5.4
 referencing==0.33.0
